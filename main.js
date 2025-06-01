@@ -1,188 +1,135 @@
+// 评分辅助函数
+function calculateScore(data, weights) {
+  const prices = data.map(item => parseFloat(item.price));
+  const deliveries = data.map(item => parseFloat(item.delivery));
+
+  const minPrice = Math.min(...prices);
+  const maxPrice = Math.max(...prices);
+  const minDelivery = Math.min(...deliveries);
+  const maxDelivery = Math.max(...deliveries);
+
+  return data.map(item => {
+    const priceScore = (maxPrice === minPrice) ? 100 : 100 - ((item.price - minPrice) / (maxPrice - minPrice)) * 100;
+    const deliveryScore = (maxDelivery === minDelivery) ? 100 : 100 - ((item.delivery - minDelivery) / (maxDelivery - minDelivery)) * 100;
+    const totalScore = priceScore * weights.price + deliveryScore * weights.delivery;
+
+    return {
+      ...item,
+      priceScore: priceScore.toFixed(2),
+      deliveryScore: deliveryScore.toFixed(2),
+      totalScore: totalScore.toFixed(2)
+    };
+  });
+}
+
+// 加载汇率（静态）
 const exchangeRates = {
-  CNY: 1.0,
+  CNY: 1,
   USD: 7.3,
   EUR: 7.9,
-  JPY: 0.046,
+  JPY: 0.05,
   HKD: 0.93
 };
+document.getElementById("exchange-rate").innerText =
+  "参考汇率：CNY = 1.00, USD = 7.30, EUR = 7.90, JPY = 0.05, HKD = 0.93";
 
-let currentChart = null;
-
-function loadSavedData() {
-  const saved = localStorage.getItem('quote-data');
-  if (saved) {
-    const rows = JSON.parse(saved);
-    const form = document.getElementById('quote-form');
-    rows.forEach((row, index) => {
-      if (index > 0) document.getElementById('add-row').click();
-      const rowEl = form.querySelectorAll('.grid')[index];
-      const inputs = rowEl.querySelectorAll('input, select');
-      inputs[0].value = row.supplier;
-      inputs[1].value = row.product;
-      inputs[2].value = row.price;
-      inputs[3].value = row.currency;
-      inputs[4].value = row.delivery;
-      inputs[5].value = row.note;
-    });
-  }
-}
-
-function saveData() {
-  const rows = document.querySelectorAll('.grid');
-  const data = Array.from(rows).map(row => {
-    const inputs = row.querySelectorAll('input, select');
-    return {
-      supplier: inputs[0].value,
-      product: inputs[1].value,
-      price: inputs[2].value,
-      currency: inputs[3].value,
-      delivery: inputs[4].value,
-      note: inputs[5].value
-    };
-  });
-  localStorage.setItem('quote-data', JSON.stringify(data));
-}
-
-function showExchangeRates() {
-  let msg = '参考汇率：';
-  for (const [key, val] of Object.entries(exchangeRates)) {
-    msg += `${key} = ${val.toFixed(2)}, `;
-  }
-  document.getElementById('exchange-rate').innerText = msg.replace(/, $/, '');
-}
-
-document.getElementById('add-row').addEventListener('click', () => {
-  const form = document.getElementById('quote-form');
-  const clone = form.querySelector('.grid').cloneNode(true);
-  clone.querySelectorAll('input').forEach(i => i.value = '');
-  form.insertBefore(clone, document.getElementById('add-row'));
-  saveData();
+// 添加供应商行
+document.getElementById("add-row").addEventListener("click", () => {
+  const row = document.querySelector("#quote-form .grid").cloneNode(true);
+  row.querySelectorAll("input").forEach(input => input.value = "");
+  document.getElementById("quote-form").appendChild(row);
 });
 
-document.getElementById('quote-form').addEventListener('click', (e) => {
-  if (e.target.innerText.includes('删除')) {
-    const row = e.target.closest('.grid');
-    if (document.querySelectorAll('.grid').length > 1) row.remove();
-    saveData();
+// 删除行按钮
+document.getElementById("quote-form").addEventListener("click", e => {
+  if (e.target.innerText.includes("删除")) {
+    const grids = document.querySelectorAll("#quote-form .grid");
+    if (grids.length > 1) e.target.closest(".grid").remove();
   }
 });
 
-document.getElementById('generate').addEventListener('click', () => {
-  const rows = document.querySelectorAll('.grid');
-  const entries = [];
+// 生成对比图
+document.getElementById("generate").addEventListener("click", () => {
+  const rows = [...document.querySelectorAll("#quote-form .grid")];
+  const data = [];
+
   rows.forEach(row => {
-    const [supplier, product, price, currency, delivery] = row.querySelectorAll('input, select');
-    const val = {
-      supplier: supplier.value,
-      product: product.value,
-      price: parseFloat(price.value),
-      currency: currency.value,
-      delivery: parseFloat(delivery.value)
-    };
-    if (val.supplier && !isNaN(val.price) && !isNaN(val.delivery) && exchangeRates[val.currency]) {
-      val.priceCNY = val.price / exchangeRates[val.currency];
-      entries.push(val);
-    }
+    const inputs = row.querySelectorAll("input, select");
+    const [supplier, product, price, currency, delivery, remark] = Array.from(inputs).map(el => el.value.trim());
+    if (!supplier || !price || !delivery) return;
+    const convertedPrice = parseFloat(price) * (exchangeRates[currency] || 1);
+    data.push({ supplier, product, price: convertedPrice, delivery: parseFloat(delivery), remark });
   });
 
-  if (!entries.length) return alert('请填写完整报价信息');
+  if (!data.length) return alert("请填写至少一条完整的报价数据");
 
-  const pw = parseFloat(document.getElementById('weight-price').value) || 60;
-  const dw = parseFloat(document.getElementById('weight-delivery').value) || 40;
+  const weightPrice = parseFloat(document.getElementById("weight-price").value) || 60;
+  const weightDelivery = parseFloat(document.getElementById("weight-delivery").value) || 40;
+  const total = weightPrice + weightDelivery;
+  const weights = { price: weightPrice / total, delivery: weightDelivery / total };
 
-  const minPrice = Math.min(...entries.map(e => e.priceCNY));
-  const maxPrice = Math.max(...entries.map(e => e.priceCNY));
-  const minDelivery = Math.min(...entries.map(e => e.delivery));
-  const maxDelivery = Math.max(...entries.map(e => e.delivery));
+  const scored = calculateScore(data, weights);
+  localStorage.setItem("last-quotes", JSON.stringify(scored));
 
-  entries.forEach(e => {
-    e.priceScore = 100 - ((e.priceCNY - minPrice) / (maxPrice - minPrice || 1)) * 100;
-    e.deliveryScore = 100 - ((e.delivery - minDelivery) / (maxDelivery - minDelivery || 1)) * 100;
-    e.score = ((e.priceScore * pw + e.deliveryScore * dw) / (pw + dw)).toFixed(2);
-  });
+  const ctx = document.getElementById("price-chart").getContext("2d");
+  if (window.priceChart) window.priceChart.destroy();
 
-  entries.sort((a, b) => b.score - a.score);
-  const labels = entries.map(e => `${e.supplier}${e === entries[0] ? ' ✅推荐' : ''}`);
-  const data = entries.map(e => parseFloat(e.score));
-  const colors = entries.map((e, i) => i === 0 ? 'rgba(16,185,129,0.8)' : 'rgba(59,130,246,0.6)');
-
-  if (currentChart) currentChart.destroy();
-  const ctx = document.getElementById('price-chart').getContext('2d');
-  currentChart = new Chart(ctx, {
-    type: 'bar',
+  window.priceChart = new Chart(ctx, {
+    type: "bar",
     data: {
-      labels,
+      labels: scored.map((item, i) => `${i + 1}. ${item.supplier}`),
       datasets: [{
-        label: '综合评分（越高越优）',
-        data,
-        backgroundColor: colors
+        label: "综合评分",
+        data: scored.map(item => item.totalScore),
+        backgroundColor: scored.map((_, i) => i === 0 ? "#4ade80" : "#60a5fa")
       }]
     },
     options: {
       plugins: {
         tooltip: {
           callbacks: {
-            label: (context) => {
-              const e = entries[context.dataIndex];
-              return [`综合评分：${e.score}`, `价格得分：${e.priceScore.toFixed(2)}`, `交期得分：${e.deliveryScore.toFixed(2)}`];
+            label: function (ctx) {
+              const item = scored[ctx.dataIndex];
+              return [
+                `✅ 综合评分：${item.totalScore}`,
+                `💰 价格得分：${item.priceScore}`,
+                `⏱️ 交期得分：${item.deliveryScore}`
+              ];
             }
           }
-        }
-      },
-      responsive: true,
-      scales: { y: { beginAtZero: true } }
+        },
+        legend: { display: false }
+      }
     }
   });
-
-  saveData();
 });
 
-document.getElementById('export-excel').addEventListener('click', () => {
-  const rows = document.querySelectorAll('.grid');
-  const data = [['供应商', '产品', '单价', '货币', '交期', '备注', '综合评分']];
-  rows.forEach((row, i) => {
-    const [s, p, pr, c, d, n] = row.querySelectorAll('input, select');
-    const score = currentChart ? currentChart.data.datasets[0].data[i] : '';
-    data.push([s.value, p.value, pr.value, c.value, d.value, n.value, score]);
-  });
-  const ws = XLSX.utils.aoa_to_sheet(data);
+// 导出 Excel
+document.getElementById("export-excel").addEventListener("click", () => {
+  const data = JSON.parse(localStorage.getItem("last-quotes") || "[]");
+  const rows = [["供应商", "产品", "价格(RMB)", "交期(天)", "备注", "综合评分"]].concat(
+    data.map(item => [item.supplier, item.product, item.price, item.delivery, item.remark, item.totalScore])
+  );
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '报价数据');
-  XLSX.writeFile(wb, '报价数据.xlsx');
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, "报价比价");
+  XLSX.writeFile(wb, "报价比价结果.xlsx");
 });
 
-document.getElementById('export-word').addEventListener('click', async () => {
-  const { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun } = window.docx;
-  const rows = document.querySelectorAll('.grid');
-  const tableRows = [
-    new TableRow({
-      children: ['供应商', '产品', '单价', '货币', '交期', '备注', '综合评分'].map(
-        text => new TableCell({ children: [new Paragraph(text)] })
-      )
+// 导出 Word
+document.getElementById("export-word").addEventListener("click", async () => {
+  const { Document, Packer, Paragraph, TextRun } = window.docx;
+  const data = JSON.parse(localStorage.getItem("last-quotes") || "[]");
+
+  const paragraphs = data.map((item, i) =>
+    new Paragraph({
+      children: [
+        new TextRun(`${i + 1}. ${item.supplier} | ${item.product} | 价格：${item.price} RMB | 交期：${item.delivery} 天 | 综合评分：${item.totalScore}`)
+      ]
     })
-  ];
-  rows.forEach((row, i) => {
-    const [s, p, pr, c, d, n] = row.querySelectorAll('input, select');
-    const score = currentChart ? currentChart.data.datasets[0].data[i] : '';
-    tableRows.push(
-      new TableRow({
-        children: [s.value, p.value, pr.value, c.value, d.value, n.value, score].map(
-          text => new TableCell({ children: [new Paragraph(String(text || ''))] })
-        )
-      })
-    );
-  });
+  );
 
-  const doc = new Document({
-    sections: [{
-      children: [new Paragraph("采购报价比价结果"), new Table({ rows: tableRows })]
-    }]
-  });
-
+  const doc = new Document({ sections: [{ children: paragraphs }] });
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, '报价数据.docx');
+  saveAs(blob, "报价比价结果.docx");
 });
-
-// 初始化
-showExchangeRates();
-loadSavedData();
