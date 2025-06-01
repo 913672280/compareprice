@@ -5,14 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>采购报价比价助手</title>
 
-  <!-- ✅ 样式：Tailwind CSS -->
+  <!-- ========== 样式：Tailwind CSS ========== -->
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
 
-  <!-- ✅ 插件依赖：图表、导出功能 -->
+  <!-- ========== 插件依赖：Chart.js、Excel 导出、文件保存（用于图表导出） ========== -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.1.3/docx.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+  <!-- 反馈 Modal 样式微调 -->
+  <style>
+    .modal-overlay {
+      background-color: rgba(0, 0, 0, 0.4);
+    }
+  </style>
 </head>
 
 <body class="bg-gray-100 text-gray-900 p-6 font-sans">
@@ -24,60 +30,65 @@
       <p class="text-sm text-gray-600 mt-2" id="exchange-rate">加载中汇率...</p>
     </div>
 
-    <!-- 报价输入 -->
+    <!-- 报价输入卡片 -->
     <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
       <h2 class="text-lg font-medium mb-4">报价信息录入</h2>
       <form id="quote-form" class="space-y-3">
-        <div class="grid grid-cols-7 gap-2 items-center">
-          <input placeholder="供应商" class="col-span-1 border p-2 rounded" />
-          <input placeholder="产品" class="col-span-1 border p-2 rounded" />
-          <input placeholder="单价" type="number" class="col-span-1 border p-2 rounded" />
-          <select class="col-span-1 border p-2 rounded">
-            <option>CNY</option>
-            <option>USD</option>
-            <option>EUR</option>
-            <option>JPY</option>
-            <option>HKD</option>
-          </select>
-          <input placeholder="交期(天)" type="number" class="col-span-1 border p-2 rounded" />
-          <input placeholder="备注" class="col-span-1 border p-2 rounded" />
-          <button type="button" class="bg-red-100 text-red-600 px-2 py-1 rounded">删除</button>
+        <div id="rows-container" class="space-y-3">
+          <!-- 初始第一行 -->
+          <div class="grid grid-cols-7 gap-2 items-center row-item">
+            <input placeholder="供应商" class="col-span-1 border p-2 rounded focus:ring-2 focus:ring-blue-300 hover:ring hover:ring-blue-100 transition" />
+            <input placeholder="产品" class="col-span-1 border p-2 rounded focus:ring-2 focus:ring-blue-300 hover:ring hover:ring-blue-100 transition" />
+            <input placeholder="单价" type="number" class="col-span-1 border p-2 rounded focus:ring-2 focus:ring-blue-300 hover:ring hover:ring-blue-100 transition" />
+            <select class="col-span-1 border p-2 rounded focus:ring-2 focus:ring-blue-300 hover:ring hover:ring-blue-100 transition">
+              <option>CNY</option>
+              <option>USD</option>
+              <option>EUR</option>
+              <option>JPY</option>
+              <option>HKD</option>
+            </select>
+            <input placeholder="交期(天)" type="number" class="col-span-1 border p-2 rounded focus:ring-2 focus:ring-blue-300 hover:ring hover:ring-blue-100 transition" />
+            <input placeholder="备注" class="col-span-1 border p-2 rounded focus:ring-2 focus:ring-blue-300 hover:ring hover:ring-blue-100 transition" />
+            <button type="button" class="delete-row bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200 transition">删除</button>
+          </div>
         </div>
-        <button type="button" id="add-row" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded">➕ 添加供应商</button>
+        <button type="button" id="add-row" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">
+          ➕ 添加供应商
+        </button>
       </form>
     </div>
 
-    <!-- 权重设置 -->
+    <!-- 权重设置卡片 -->
     <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
       <h2 class="text-lg font-medium mb-4">评分权重设置</h2>
       <div class="flex flex-wrap gap-6 items-center">
         <div class="flex items-center space-x-2">
           <label for="weight-price" class="text-sm text-gray-600">价格权重（%）</label>
-          <input id="weight-price" type="number" class="border p-1.5 rounded w-28" />
+          <input id="weight-price" type="number" class="border p-1.5 rounded w-28 focus:ring-2 focus:ring-blue-300 hover:ring-1 hover:ring-blue-200 transition" />
         </div>
         <div class="flex items-center space-x-2">
           <label for="weight-delivery" class="text-sm text-gray-600">交期权重（%）</label>
-          <input id="weight-delivery" type="number" class="border p-1.5 rounded w-28" />
+          <input id="weight-delivery" type="number" class="border p-1.5 rounded w-28 focus:ring-2 focus:ring-blue-300 hover:ring-1 hover:ring-blue-200 transition" />
         </div>
       </div>
       <p class="text-xs text-gray-500 mt-2">不填写时，默认价格占 60%，交期占 40%</p>
     </div>
 
-    <!-- 操作按钮 -->
+    <!-- 操作按钮卡片 -->
     <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
       <h2 class="text-lg font-medium mb-4">操作区域</h2>
-      <div class="flex flex-wrap gap-4">
-        <button id="generate" class="bg-green-600 text-white px-6 py-2 rounded text-lg hover:bg-green-700">📊 生成对比图</button>
-        <button id="export-word" class="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700">⬇️ 导出为 Word</button>
-        <button id="export-excel" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">⬇️ 导出为 Excel</button>
+      <div class="flex flex-wrap gap-4 items-center">
+        <button id="generate" class="bg-green-600 text-white px-6 py-2 rounded text-lg hover:bg-green-700 transition">📊 生成对比图</button>
+        <!-- 已移除“导出为 Word”按钮 -->
+        <button id="export-excel" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">⬇️ 导出为 Excel</button>
+        <button id="export-chart" class="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600 transition">🖼️ 导出图表图片</button>
       </div>
     </div>
 
-    <!-- 图表展示 -->
+    <!-- 图表展示卡片 -->
     <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
       <h2 class="text-lg font-medium mb-4">评分对比图</h2>
       <canvas id="price-chart" class="h-64"></canvas>
-
       <p class="text-xs text-gray-500 mt-4 leading-relaxed border-t pt-3">
         <strong>评分说明：</strong><br>
         综合得分 = 价格得分 × 权重 + 交期得分 × 权重。<br><br>
@@ -85,6 +96,30 @@
         - 交期得分 = 100 - （该交期 - 最快交期）÷（最慢交期 - 最快交期）× 100<br><br>
         ✅ 分数越高，表示综合性价比越优，仅供参考。
       </p>
+    </div>
+  </div>
+
+  <!-- ================= 用户反馈按钮（固定在右下角） ================= -->
+  <button id="feedback-button"
+          class="fixed bottom-6 right-6 bg-yellow-500 text-white px-4 py-2 rounded-full shadow-lg hover:bg-yellow-600 transition z-50">
+    💬 反馈意见
+  </button>
+
+  <!-- ================= 反馈 Modal ================= -->
+  <div id="feedback-modal" class="fixed inset-0 hidden items-center justify-center modal-overlay z-40">
+    <div class="bg-white rounded-xl w-11/12 max-w-lg p-6 shadow-lg">
+      <h3 class="text-xl font-semibold mb-4">用户反馈</h3>
+      <textarea id="feedback-text" rows="6"
+                class="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-300"
+                placeholder="请在此输入您的宝贵意见，我们会不断改进，谢谢！"></textarea>
+      <div class="mt-4 flex justify-end space-x-2">
+        <button id="feedback-cancel" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">
+          取消
+        </button>
+        <button id="feedback-submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
+          提交反馈
+        </button>
+      </div>
     </div>
   </div>
 
