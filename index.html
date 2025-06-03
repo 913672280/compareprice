@@ -1,64 +1,62 @@
+
 <!DOCTYPE html>
 <html lang="zh">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>采购报价比价助手</title>
-
-  <!-- ========== 样式：Tailwind CSS ========== -->
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
-
-  <!-- ========== 插件依赖：Chart.js、Excel 导出、文件保存（用于图表导出） ========== -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-
-  <!-- 反馈 Modal 样式微调 -->
   <style>
-    .modal-overlay {
-      background-color: rgba(0, 0, 0, 0.4);
+    .modal-overlay { background-color: rgba(0, 0, 0, 0.4); }
+    /* 添加新的样式 */
+    .exchange-rate {
+      font-size: 0.75rem; /* 字体变小 */
+      color: #666; /* 灰色文字，符合商务简洁风 */
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; /* 苹果风格字体 */
     }
   </style>
 </head>
-
 <body class="bg-gray-100 text-gray-900 p-6 font-sans">
   <div class="max-w-4xl mx-auto space-y-6">
-
-    <!-- 标题区域 -->
     <div class="text-center">
       <h1 class="text-3xl font-semibold">采购报价比价助手</h1>
-      <p class="text-sm text-gray-600 mt-2" id="exchange-rate">加载中汇率...</p>
-    </div>
-
-    <!-- 报价输入卡片 -->
-    <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+      <!-- 修改汇率显示部分 -->
+      <div class="my-4"></div> <!-- 添加顶部留白 -->
+      <p class="exchange-rate">💱 固定汇率（用于比价计算）：1 美元 = 7.30 人民币，1 欧元 = 7.90 人民币，1 港币 = 0.93 人民币，1 日元 = 0.05 人民币</p>
+      <div class="my-4"></div> <!-- 添加底部留白 -->
+      <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
       <h2 class="text-lg font-medium mb-4">报价信息录入</h2>
       <form id="quote-form" class="space-y-3">
-        <div id="rows-container" class="space-y-3">
-          <!-- 初始第一行 -->
-          <div class="grid grid-cols-7 gap-2 items-center row-item">
-            <input placeholder="供应商" class="col-span-1 border p-2 rounded focus:ring-2 focus:ring-blue-300 hover:ring hover:ring-blue-100 transition" />
-            <input placeholder="产品" class="col-span-1 border p-2 rounded focus:ring-2 focus:ring-blue-300 hover:ring hover:ring-blue-100 transition" />
-            <input placeholder="单价" type="number" class="col-span-1 border p-2 rounded focus:ring-2 focus:ring-blue-300 hover:ring hover:ring-blue-100 transition" />
-            <select class="col-span-1 border p-2 rounded focus:ring-2 focus:ring-blue-300 hover:ring hover:ring-blue-100 transition">
+        <div id="rows-container" class="space-y-2">
+          <div class="grid grid-cols-8 gap-2 items-center row-item">
+            <input placeholder="供应商" class="col-span-1 border p-2 rounded" />
+            <input placeholder="产品" class="col-span-1 border p-2 rounded" />
+            <input placeholder="单价" type="number" class="col-span-1 border p-2 rounded" />
+            <select class="col-span-1 border p-2 rounded">
               <option>CNY</option>
               <option>USD</option>
               <option>EUR</option>
               <option>JPY</option>
               <option>HKD</option>
             </select>
-            <input placeholder="交期(天)" type="number" class="col-span-1 border p-2 rounded focus:ring-2 focus:ring-blue-300 hover:ring hover:ring-blue-100 transition" />
-            <input placeholder="备注" class="col-span-1 border p-2 rounded focus:ring-2 focus:ring-blue-300 hover:ring hover:ring-blue-100 transition" />
-            <button type="button" class="delete-row bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200 transition">删除</button>
+            <input placeholder="交期(天)" type="number" class="col-span-1 border p-2 rounded" />
+            <input placeholder="备注" class="col-span-1 border p-2 rounded" />
+            <div class="col-span-1 flex space-x-1 justify-center">
+              <button type="button" class="clear-row bg-gray-100 text-gray-600 px-3 py-1 rounded hover:bg-gray-200 text-sm transition">清空</button>
+              <button type="button" class="delete-row bg-red-100 text-red-600 px-3 py-1 rounded hover:bg-red-200 text-sm transition">删除</button>
+            </div>
           </div>
         </div>
-        <button type="button" id="add-row" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">
-          ➕ 添加供应商
-        </button>
+        <div class="flex flex-wrap gap-2 mt-2">
+          <button type="button" id="add-row" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">➕ 添加供应商</button>
+          <button type="button" id="load-demo" data-state="init" class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 transition"><span id="load-demo-text">🎯 加载示例项目</span></button>
+          <button type="button" id="undo-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded transition">撤销上一步</button>
+        </div>
       </form>
     </div>
-
-    <!-- 权重设置卡片 -->
     <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
       <h2 class="text-lg font-medium mb-4">评分权重设置</h2>
       <div class="flex flex-wrap gap-6 items-center">
@@ -73,19 +71,14 @@
       </div>
       <p class="text-xs text-gray-500 mt-2">不填写时，默认价格占 60%，交期占 40%</p>
     </div>
-
-    <!-- 操作按钮卡片 -->
     <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
       <h2 class="text-lg font-medium mb-4">操作区域</h2>
       <div class="flex flex-wrap gap-4 items-center">
         <button id="generate" class="bg-green-600 text-white px-6 py-2 rounded text-lg hover:bg-green-700 transition">📊 生成对比图</button>
-        <!-- 已移除“导出为 Word”按钮 -->
         <button id="export-excel" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">⬇️ 导出为 Excel</button>
         <button id="export-chart" class="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600 transition">🖼️ 导出图表图片</button>
       </div>
     </div>
-
-    <!-- 图表展示卡片 -->
     <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
       <h2 class="text-lg font-medium mb-4">评分对比图</h2>
       <canvas id="price-chart" class="h-64"></canvas>
@@ -98,32 +91,171 @@
       </p>
     </div>
   </div>
-
-  <!-- ================= 用户反馈按钮（固定在右下角） ================= -->
-  <button id="feedback-button"
+  <!-- 完全移除残留的反馈模态框代码 -->
+  <button id="feedback-button" 
+          onclick="window.open('https://j1hixknr5u6.feishu.cn/share/base/form/shrcnS0BKuR4jGdh5BcwLgZWGHb', '_blank')" 
           class="fixed bottom-6 right-6 bg-yellow-500 text-white px-4 py-2 rounded-full shadow-lg hover:bg-yellow-600 transition z-50">
     💬 反馈意见
   </button>
+  
+  <script>
+    // 撤销堆栈
+    let undoStack = [];
+    // 获取当前rows数据
+    function getRowsData() {
+      return Array.from(document.querySelectorAll("#rows-container .row-item")).map(row => ({
+        supplier: row.children[0].value,
+        product: row.children[1].value,
+        price: row.children[2].value,
+        currency: row.children[3].value,
+        delivery: row.children[4].value,
+        note: row.children[5].value
+      }));
+    }
+    // 用数据重绘所有行
+    function setRowsData(data) {
+      const container = document.getElementById("rows-container");
+      container.innerHTML = "";
+      data.forEach(item => {
+        const row = document.createElement("div");
+        row.className = "grid grid-cols-8 gap-2 items-center row-item";
+        row.innerHTML = `
+          <input value="${item.supplier}" placeholder="供应商" class="col-span-1 border p-2 rounded" />
+          <input value="${item.product}" placeholder="产品" class="col-span-1 border p-2 rounded" />
+          <input value="${item.price}" placeholder="单价" type="number" class="col-span-1 border p-2 rounded" />
+          <select class="col-span-1 border p-2 rounded">
+            <option ${item.currency==="CNY"?"selected":""}>CNY</option>
+            <option ${item.currency==="USD"?"selected":""}>USD</option>
+            <option ${item.currency==="EUR"?"selected":""}>EUR</option>
+            <option ${item.currency==="JPY"?"selected":""}>JPY</option>
+            <option ${item.currency==="HKD"?"selected":""}>HKD</option>
+          </select>
+          <input value="${item.delivery}" placeholder="交期(天)" type="number" class="col-span-1 border p-2 rounded" />
+          <input value="${item.note}" placeholder="备注" class="col-span-1 border p-2 rounded" />
+          <div class="col-span-1 flex space-x-1 justify-center">
+            <button type="button" class="clear-row bg-gray-100 text-gray-600 px-3 py-1 rounded hover:bg-gray-200 text-sm transition">清空</button>
+            <button type="button" class="delete-row bg-red-100 text-red-600 px-3 py-1 rounded hover:bg-red-200 text-sm transition">删除</button>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+      bindAllRowEvents();
+    }
+    // 绑定行按钮事件
+    function bindRowEvents(row) {
+      row.querySelector(".clear-row").onclick = function() {
+        pushUndo();
+        row.querySelectorAll("input").forEach(i => i.value = "");
+        row.querySelectorAll("select").forEach(s => s.selectedIndex = 0);
+        // 每次数据变更后保存数据
+        localStorage.setItem('procurementData', JSON.stringify(getRowsData()));
+      };
+      row.querySelector(".delete-row").onclick = function() {
+        pushUndo();
+        row.remove();
+        // 每次数据变更后保存数据
+        localStorage.setItem('procurementData', JSON.stringify(getRowsData()));
+      };
+    }
+    function bindAllRowEvents() {
+      document.querySelectorAll(".row-item").forEach(bindRowEvents);
+    }
+    // 添加供应商行
+    document.getElementById("add-row").onclick = function() {
+      pushUndo();
+      const container = document.getElementById("rows-container");
+      const row = document.createElement("div");
+      row.className = "grid grid-cols-8 gap-2 items-center row-item";
+      row.innerHTML = `
+        <input placeholder="供应商" class="col-span-1 border p-2 rounded" />
+        <input placeholder="产品" class="col-span-1 border p-2 rounded" />
+        <input placeholder="单价" type="number" class="col-span-1 border p-2 rounded" />
+        <select class="col-span-1 border p-2 rounded">
+          <option>CNY</option>
+          <option>USD</option>
+          <option>EUR</option>
+          <option>JPY</option>
+          <option>HKD</option>
+        </select>
+        <input placeholder="交期(天)" type="number" class="col-span-1 border p-2 rounded" />
+        <input placeholder="备注" class="col-span-1 border p-2 rounded" />
+        <div class="col-span-1 flex space-x-1 justify-center">
+          <button type="button" class="clear-row bg-gray-100 text-gray-600 px-3 py-1 rounded hover:bg-gray-200 text-sm transition">清空</button>
+          <button type="button" class="delete-row bg-red-100 text-red-600 px-3 py-1 rounded hover:bg-red-200 text-sm transition">删除</button>
+        </div>
+      `;
+      container.appendChild(row);
+      bindRowEvents(row);
+      // 每次数据变更后保存数据
+      localStorage.setItem('procurementData', JSON.stringify(getRowsData()));
+    };
+    // 加载/清空示例
+    document.getElementById("load-demo").onclick = function() {
+      const container = document.getElementById("rows-container");
+      const btn = document.getElementById("load-demo");
+      const btnText = document.getElementById("load-demo-text");
+      pushUndo();
+      if (btn.dataset.state === "init") {
+        const exampleData = [
+          { supplier: "供应商A", product: "硅片", price: 98, currency: "CNY", delivery: 5, note: "老客户" },
+          { supplier: "供应商B", product: "硅片", price: 103, currency: "CNY", delivery: 7, note: "交期稍慢" },
+          { supplier: "供应商C", product: "硅片", price: 95, currency: "CNY", delivery: 10, note: "首次合作" }
+        ];
+        setRowsData(exampleData);
+        btn.dataset.state = "loaded";
+        btnText.innerText = "🧹 清空示例项目";
+      } else {
+        setRowsData([{
+          supplier: "", product: "", price: "", currency: "CNY", delivery: "", note: ""
+        }]);
+        btn.dataset.state = "init";
+        btnText.innerText = "🎯 加载示例项目";
+      }
+      // 每次数据变更后保存数据
+      localStorage.setItem('procurementData', JSON.stringify(getRowsData()));
+    };
+    // 撤销功能
+    function pushUndo() {
+      undoStack.push(getRowsData());
+      if (undoStack.length > 30) undoStack.shift();
+    }
+    document.getElementById("undo-btn").onclick = function() {
+      if (undoStack.length === 0) {
+        alert("没有可撤销的步骤！");
+        return;
+      }
+      setRowsData(undoStack.pop());
+      // 每次数据变更后保存数据
+      localStorage.setItem('procurementData', JSON.stringify(getRowsData()));
+    };
+    // 初始绑定所有行按钮
+    bindAllRowEvents();
 
-  <!-- ================= 反馈 Modal ================= -->
-  <div id="feedback-modal" class="fixed inset-0 hidden items-center justify-center modal-overlay z-40">
-    <div class="bg-white rounded-xl w-11/12 max-w-lg p-6 shadow-lg">
-      <h3 class="text-xl font-semibold mb-4">用户反馈</h3>
-      <textarea id="feedback-text" rows="6"
-                class="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-300"
-                placeholder="请在此输入您的宝贵意见，我们会不断改进，谢谢！"></textarea>
-      <div class="mt-4 flex justify-end space-x-2">
-        <button id="feedback-cancel" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">
-          取消
-        </button>
-        <button id="feedback-submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
-          提交反馈
-        </button>
-      </div>
-    </div>
-  </div>
+    // 页面加载时恢复数据
+    window.addEventListener('DOMContentLoaded', () => {
+      const saved = localStorage.getItem('procurementData');
+      if (saved) setRowsData(JSON.parse(saved));
+    });
 
-  <!-- 页面逻辑脚本 -->
+    // 删除以下残留的反馈弹窗代码
+    // document.getElementById("feedback-button").onclick = function() {
+    //   document.getElementById("feedback-modal").classList.remove("hidden");
+    // };
+    // document.getElementById("feedback-cancel").onclick = function() {
+    //   document.getElementById("feedback-modal").classList.add("hidden");
+    // };
+    // document.getElementById("feedback-submit").onclick = function() {
+    //   const fbText = document.getElementById("feedback-text");
+    //   const content = fbText.value.trim();
+    //   if (!content) return alert("请填写意见内容！");
+    //   const list = JSON.parse(localStorage.getItem("feedbacks") || "[]");
+    //   list.push({ text: content, time: new Date().toISOString() });
+    //   localStorage.setItem("feedbacks", JSON.stringify(list));
+    //   alert("感谢你的反馈！");
+    //   fbText.value = "";
+    //   document.getElementById("feedback-modal").classList.add("hidden");
+    // };
+  </script>
   <script src="main.js"></script>
 </body>
 </html>
